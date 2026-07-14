@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= server.name %> - Plugins - <%= settings.panelName %></title>
+    <link rel="icon" href="/falcon.ico" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      .gradient-bg {
+        background: linear-gradient(-45deg, #1e1b4b, #312e81, #4f46e5, #7c3aed);
+        background-size: 400% 400%;
+        animation: gradient 15s ease infinite;
+      }
+
+      @keyframes gradient {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+      }
+      .modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-content {
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 12px;
+        padding: 24px;
+        min-width: 400px;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+
+      /* Plugin Card Styles */
+      .plugin-card {
+        background: #1f2937;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid #374151;
+        transition: all 0.3s;
+      }
+
+      .plugin-card:hover {
+        border-color: #6366f1;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      }
+
+      .plugin-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .plugin-item {
+        background: rgba(17, 24, 39, 0.4);
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid rgba(55, 65, 81, 0.5);
+        transition: all 0.2s;
+      }
+
+      .plugin-item:hover {
+        border-color: #6366f1;
+        background: rgba(17, 24, 39, 0.6);
+      }
+
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #374151;
+        border-top: 3px solid #6366f1;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Switch Toggle */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 26px;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #374151;
+        transition: 0.4s;
+        border-radius: 30px;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .slider {
+        background-color: #10b981;
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(24px);
+      }
+
+      /* Notification */
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 1001;
+        transform: translateX(120%);
+        transition: transform 0.3s;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .notification.show {
+        transform: translateX(0);
+      }
+
+      .notification.success {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-left: 4px solid #047857;
+      }
+
+      .notification.error {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border-left: 4px solid #b91c1c;
+      }
+
+      .notification.info {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        border-left: 4px solid #1d4ed8;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900 text-white flex h-screen overflow-hidden">
+    <!-- SIDEBAR -->
+    <aside class="w-72 bg-gray-800 border-r border-gray-700/50 flex flex-col">
+      <!-- Logo & Panel Name -->
+      <div class="p-5 border-b border-gray-700/50">
+        <a href="/dashboard" class="flex items-center gap-3 group">
+          <div
+            class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shadow-lg shadow-violet-500/20"
+          >
+            <i class="fas fa-gamepad text-white"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-lg tracking-tight">
+              <%= settings.panelName %>
+            </h1>
+            <p class="text-xs text-gray-400">Game Panel</p>
+          </div>
+        </a>
+      </div>
+
+      <!-- Server Info Card -->
+      <div class="p-5 border-b border-gray-700/50">
+        <div
+          class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700/30 shadow-lg"
+        >
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex-1">
+              <h2 class="font-bold text-lg truncate"><%= server.name %></h2>
+              <p class="text-sm text-gray-400 mt-1">
+                <i class="fas fa-server text-violet-400 mr-2"></i>
+                <%= server.type %> <%= server.version %>
+              </p>
+            </div>
+            <div class="flex flex-col items-end">
+              <span
+                class="px-3 py-1 rounded-full text-xs font-medium <%= server.status === 'running' ? 'bg-green-500/20 text-green-400 status-pulse' : server.status === 'stopped' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400' %>"
+              >
+                <i class="fas fa-circle text-[8px] mr-1"></i>
+                <%= server.status.charAt(0).toUpperCase() +
+                server.status.slice(1) %>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="flex-1 p-5 overflow-y-auto">
+        <nav class="space-y-1">
+          <a
+            href="/server/<%= server.id %>"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group"
+          >
+            <i
+              class="fas fa-terminal w-5 text-center group-hover:text-green-400"
+            ></i>
+            <span>Console</span>
+          </a>
+
+          <a
+            href="/server/<%= server.id %>/files"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group"
+          >
+            <i
+              class="fas fa-folder w-5 text-center group-hover:text-blue-400"
+            ></i>
+            <span>File Manager</span>
+          </a>
+
+          <a
+            href="/server/<%= server.id %>/allocations"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group"
+          >
+            <i
+              class="fas fa-network-wired w-5 text-center group-hover:text-cyan-400"
+            ></i>
+            <span>Allocations</span>
+          </a>
+
+          <a
+            href="/server/<%= server.id %>/players"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group"
+          >
+            <i
+              class="fas fa-users w-5 text-center group-hover:text-green-400"
+            ></i>
+            <span>Players</span>
+          </a>
+
+          <a
+            href="/server/<%= server.id %>/plugins"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-600/20 to-indigo-600/20 border border-violet-500/20 text-violet-300 transition-all duration-200"
+          >
+            <i class="fas fa-plug w-5 text-center"></i>
+            <span>Plugins</span>
+          </a>
+
+          <a
+            href="/server/<%= server.id %>/versions"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group"
+          >
+            <i
+              class="fas fa-code-branch w-5 text-center group-hover:text-orange-400"
+            ></i>
+            <span>Versions</span>
+          </a>
+
+          <a
+            href="/server/<%= server.id %>/settings"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group"
+          >
+            <i class="fas fa-cog w-5 text-center group-hover:text-gray-400"></i>
+            <span>Settings</span>
+          </a>
+        </nav>
+
+        <!-- Quick Stats -->
+        <div class="mt-8 pt-6 border-t border-gray-700/50">
+          <h3
+            class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3"
+          >
+            Quick Stats
+          </h3>
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-400">Node:</span>
+              <span class="font-medium"><%= server.node.name %></span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-400">Location:</span>
+              <span class="font-medium"><%= server.node.location %></span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-400">Created:</span>
+              <span class="font-medium"
+                ><%= new Date(server.createdAt).toLocaleDateString() %></span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer / Back Button -->
+      <div class="p-5 border-t border-gray-700/50">
+        <a
+          href="/server/<%= server.id %>"
+          class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-700/30 text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group"
+        >
+          <i
+            class="fas fa-arrow-left text-sm group-hover:-translate-x-1 transition-transform"
+          ></i>
+          <span>Back to Console</span>
+        </a>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <!-- Header -->
+      <header
+        class="bg-gray-800/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4 flex items-center justify-between"
+      >
+        <div>
+          <h1 class="text-xl font-bold">Plugin Manager</h1>
+          <p class="text-sm text-gray-400">
+            Manage and install plugins for your server
+          </p>
+        </div>
+
+        <button
+          onclick="showPluginStore()"
+          class="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+        >
+          <i class="fas fa-store"></i> Browse & Install Plugins
+        </button>
+      </header>
+
+      <!-- Main Scrollable Area -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-700 mb-6">
+          <button
+            id="tab-installed"
+            class="px-4 py-2 font-medium border-b-2 border-violet-500 text-violet-400 transition-colors"
+          >
+            <i class="fas fa-plug mr-2"></i>Installed Plugins (<%=
+            plugins.length %>)
+          </button>
+          <button
+            id="tab-store"
+            class="px-4 py-2 font-medium text-gray-400 hover:text-white transition-colors"
+          >
+            <i class="fas fa-store mr-2"></i>Plugin Store
+          </button>
+        </div>
+
+        <!-- Installed Plugins Tab -->
+        <div id="installed-plugins">
+          <% if (plugins.length === 0) { %>
+          <div
+            class="bg-gray-800/30 rounded-xl border border-gray-700/50 p-12 text-center text-gray-400"
+          >
+            <i class="fas fa-plug text-4xl mb-4 opacity-50"></i>
+            <h3 class="text-xl font-semibold mb-2">No plugins installed</h3>
+            <p class="mb-6">
+              Install plugins to enhance your server functionality
+            </p>
+            <button
+              onclick="showPluginStore()"
+              class="px-6 py-3 bg-violet-600 hover:bg-violet-700 rounded-lg font-semibold"
+            >
+              <i class="fas fa-store mr-2"></i>Browse Plugin Store
+            </button>
+          </div>
+          <% } else { %>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <% plugins.forEach(plugin => { %>
+            <div
+              class="bg-gray-800/30 rounded-xl border border-gray-700/50 p-6 flex flex-col justify-between"
+            >
+              <div>
+                <div class="flex justify-between items-start mb-4">
+                  <div class="min-w-0 flex-1 pr-2">
+                    <h3
+                      class="font-semibold text-lg truncate"
+                      title="<%= plugin.name %>"
+                    >
+                      <%= plugin.name %>
+                    </h3>
+                    <p class="text-sm text-gray-400">v<%= plugin.version %></p>
+                  </div>
+                  <span
+                    class="text-xs px-2.5 py-1 rounded-full font-medium <%= plugin.enabled ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400' %>"
+                  >
+                    <%= plugin.enabled ? 'Enabled' : 'Disabled' %>
+                  </span>
+                </div>
+
+                <div class="text-sm text-gray-400 mb-6 flex items-center gap-2">
+                  <i class="fas fa-hdd text-gray-500"></i>
+                  <span><%= (plugin.size / 1024 / 1024).toFixed(2) %> MB</span>
+                </div>
+              </div>
+
+              <div
+                class="flex items-center justify-between pt-4 border-t border-gray-700/30"
+              >
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <span class="text-sm text-gray-400">Status</span>
+                  <div class="switch">
+                    <input type="checkbox" <%= plugin.enabled ? 'checked' : ''
+                    %> onchange="togglePlugin('<%= plugin.name %>',
+                    this.checked)">
+                    <span class="slider"></span>
+                  </div>
+                </label>
+
+                <button
+                  onclick="deletePlugin('<%= plugin.name %>')"
+                  class="px-3 py-1.5 text-sm bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors border border-red-500/20"
+                >
+                  <i class="fas fa-trash mr-1"></i>Delete
+                </button>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+          <% } %>
+        </div>
+
+        <!-- Plugin Store Tab -->
+        <div id="plugin-store" class="hidden">
+          <div class="mb-6">
+            <div class="flex flex-col md:flex-row gap-4 mb-4">
+              <div class="flex-1 relative">
+                <input
+                  type="text"
+                  id="plugin-search"
+                  class="w-full px-4 py-3 bg-gray-800/50 border border-gray-700/50 rounded-lg pl-12 focus:border-violet-500 focus:outline-none text-white placeholder-gray-500"
+                  placeholder="Search plugins (EssentialsX, WorldEdit, LuckPerms...)"
+                />
+                <i
+                  class="fas fa-search absolute left-4 top-4 text-gray-500"
+                ></i>
+              </div>
+              <div class="flex gap-4">
+                <select
+                  id="plugin-source"
+                  class="px-4 py-3 bg-gray-800/50 border border-gray-700/50 rounded-lg focus:border-violet-500 focus:outline-none"
+                >
+                  <option value="spigot">SpigotMC</option>
+                  <option value="modrinth">Modrinth</option>
+                </select>
+                <button
+                  onclick="searchPlugins()"
+                  class="px-6 py-3 bg-violet-600 hover:bg-violet-700 rounded-lg font-semibold transition-colors shrink-0"
+                >
+                  <i class="fas fa-search mr-2"></i>Search
+                </button>
+              </div>
+            </div>
+
+            <div class="flex gap-2 flex-wrap">
+              <button
+                onclick="searchPlugins('minecraft')"
+                class="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-sm border border-gray-700/30 transition-colors"
+              >
+                Popular
+              </button>
+              <button
+                onclick="searchPlugins('essentials')"
+                class="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-sm border border-gray-700/30 transition-colors"
+              >
+                Essentials
+              </button>
+              <button
+                onclick="searchPlugins('worldedit')"
+                class="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-sm border border-gray-700/30 transition-colors"
+              >
+                WorldEdit
+              </button>
+              <button
+                onclick="searchPlugins('luckperms')"
+                class="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-sm border border-gray-700/30 transition-colors"
+              >
+                LuckPerms
+              </button>
+              <button
+                onclick="searchPlugins('vault')"
+                class="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-sm border border-gray-700/30 transition-colors"
+              >
+                Vault
+              </button>
+              <button
+                onclick="searchPlugins('plugin')"
+                class="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-sm border border-gray-700/30 transition-colors"
+              >
+                All Plugins
+              </button>
+            </div>
+          </div>
+
+          <div id="plugin-results">
+            <div class="text-center py-12">
+              <div class="loading-spinner"></div>
+              <p class="mt-4 text-gray-400">
+                Search for plugins to get started
+              </p>
+            </div>
+          </div>
+
+          <div
+            id="plugin-pagination"
+            class="flex justify-center items-center gap-4 mt-8 hidden"
+          >
+            <button
+              id="prev-page"
+              class="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/30 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <i class="fas fa-chevron-left mr-2"></i>Previous
+            </button>
+            <span id="page-info" class="px-4 py-2 text-gray-400 font-medium"
+              >Page 1</span
+            >
+            <button
+              id="next-page"
+              class="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/30 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next <i class="fas fa-chevron-right ml-2"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Installation Modal -->
+    <div id="install-modal" class="modal">
+      <div class="modal-content">
+        <div id="modalContent"></div>
+      </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+      // State
+      let currentPage = 1;
+      let currentSearch = "";
+      let currentSource = "spigot";
+      let selectedPlugin = null;
+
+      // Tab switching
+      document.getElementById("tab-installed").addEventListener("click", () => {
+        document
+          .getElementById("tab-installed")
+          .classList.add("border-violet-500", "text-violet-400");
+        document
+          .getElementById("tab-installed")
+          .classList.remove("text-gray-400");
+        document
+          .getElementById("tab-store")
+          .classList.remove("border-violet-500", "text-violet-400");
+        document.getElementById("tab-store").classList.add("text-gray-400");
+        document.getElementById("installed-plugins").classList.remove("hidden");
+        document.getElementById("plugin-store").classList.add("hidden");
+      });
+
+      document.getElementById("tab-store").addEventListener("click", () => {
+        document
+          .getElementById("tab-store")
+          .classList.add("border-violet-500", "text-violet-400");
+        document.getElementById("tab-store").classList.remove("text-gray-400");
+        document
+          .getElementById("tab-installed")
+          .classList.remove("border-violet-500", "text-violet-400");
+        document.getElementById("tab-installed").classList.add("text-gray-400");
+        document.getElementById("plugin-store").classList.remove("hidden");
+        document.getElementById("installed-plugins").classList.add("hidden");
+        if (currentSearch === "") {
+          searchPlugins("minecraft");
+        }
+      });
+
+      // Show plugin store
+      function showPluginStore() {
+        document.getElementById("tab-store").click();
+      }
+
+      // Search plugins
+      async function searchPlugins(query = "") {
+        if (query) {
+          document.getElementById("plugin-search").value = query;
+        }
+
+        currentSearch =
+          document.getElementById("plugin-search").value.trim() || query;
+        currentSource = document.getElementById("plugin-source").value;
+        currentPage = 1;
+
+        const resultsDiv = document.getElementById("plugin-results");
+        resultsDiv.innerHTML = `
+          <div class="text-center py-12">
+            <div class="loading-spinner"></div>
+            <p class="mt-4 text-gray-400">Searching plugins...</p>
+          </div>
+        `;
+
+        try {
+          const response = await fetch(
+            `/server/<%= server.id %>/plugins/available?search=${encodeURIComponent(
+              currentSearch
+            )}&page=${currentPage}&source=${currentSource}`
+          );
+          const data = await response.json();
+
+          if (data.success) {
+            renderPluginResults(data.plugins);
+            updatePagination(data.plugins.length > 0);
+          } else {
+            resultsDiv.innerHTML = `
+              <div class="text-center py-12 text-red-400">
+                <i class="fas fa-exclamation-triangle text-3xl mb-4"></i>
+                <p>Failed to load plugins</p>
+              </div>
+            `;
+          }
+        } catch (error) {
+          resultsDiv.innerHTML = `
+            <div class="text-center py-12 text-red-400">
+              <i class="fas fa-exclamation-triangle text-3xl mb-4"></i>
+              <p>Error: ${error.message}</p>
+            </div>
+          `;
+        }
+      }
+
+      // Render plugin results
+      function renderPluginResults(plugins) {
+        const resultsDiv = document.getElementById("plugin-results");
+
+        if (plugins.length === 0) {
+          resultsDiv.innerHTML = `
+            <div class="text-center py-12 text-gray-400">
+              <i class="fas fa-search text-3xl mb-4 opacity-50"></i>
+              <h3 class="text-xl font-semibold mb-2">No plugins found</h3>
+              <p>Try a different search term</p>
+            </div>
+          `;
+          return;
+        }
+
+        resultsDiv.innerHTML = `
+          <div class="plugin-grid">
+            ${plugins.map((plugin) => createPluginCard(plugin)).join("")}
+          </div>
+        `;
+
+        // Add event listeners to install buttons
+        document.querySelectorAll(".install-plugin-btn").forEach((btn) => {
+          btn.addEventListener("click", function () {
+            const pluginId = this.dataset.pluginId;
+            const pluginName = this.dataset.pluginName;
+            const plugin = plugins.find((p) =>
+              currentSource === "spigot"
+                ? p.id.toString() === pluginId
+                : p.project_id === pluginId
+            );
+            if (plugin) {
+              openInstallModal(plugin, pluginName);
+            }
+          });
+        });
+      }
+
+      // Create plugin card HTML
+      function createPluginCard(plugin) {
+        if (currentSource === "spigot") {
+          return `
+            <div class="plugin-item flex flex-col justify-between">
+              <div>
+                <div class="flex justify-between items-start mb-3">
+                  <h3 class="font-semibold truncate pr-2 flex-1 text-base" title="${
+                    plugin.name || "Unnamed Plugin"
+                  }">
+                    <i class="fas fa-cube text-violet-400 mr-2"></i>
+                    ${plugin.name || "Unnamed Plugin"}
+                  </h3>
+                  <span class="text-xs px-2 py-0.5 bg-violet-900/30 text-violet-400 rounded-full font-medium shrink-0">Spigot</span>
+                </div>
+                
+                <p class="text-sm text-gray-400 mb-4 line-clamp-2">
+                  ${plugin.tag || "No description available"}
+                </p>
+              </div>
+              
+              <div>
+                <div class="flex justify-between items-center text-xs text-gray-500 mb-4 pt-3 border-t border-gray-800/50">
+                  <span class="flex items-center gap-1">
+                    <i class="fas fa-user text-gray-600"></i>
+                    ${plugin.author ? plugin.author.name : "Unknown"}
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <i class="fas fa-download text-gray-600"></i>
+                    ${plugin.downloads ? formatNumber(plugin.downloads) : "0"}
+                  </span>
+                </div>
+                
+                <button class="w-full py-2 bg-violet-600 hover:bg-violet-700 rounded-lg font-medium install-plugin-btn transition-colors text-sm"
+                        data-plugin-id="${plugin.id}"
+                        data-plugin-name="${plugin.name || "plugin"}">
+                  <i class="fas fa-download mr-2"></i>Install
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="plugin-item flex flex-col justify-between">
+              <div>
+                <div class="flex justify-between items-start mb-3">
+                  <h3 class="font-semibold truncate pr-2 flex-1 text-base" title="${
+                    plugin.title || "Unnamed Plugin"
+                  }">
+                    <i class="fas fa-box-open text-blue-400 mr-2"></i>
+                    ${plugin.title || "Unnamed Plugin"}
+                  </h3>
+                  <span class="text-xs px-2 py-0.5 bg-blue-900/30 text-blue-400 rounded-full font-medium shrink-0">Modrinth</span>
+                </div>
+                
+                <p class="text-sm text-gray-400 mb-4 line-clamp-2">
+                  ${plugin.description || "No description available"}
+                </p>
+              </div>
+              
+              <div>
+                <div class="flex justify-between items-center text-xs text-gray-500 mb-4 pt-3 border-t border-gray-800/50">
+                  <span class="flex items-center gap-1">
+                    <i class="fas fa-user text-gray-600"></i>
+                    ${plugin.author || "Unknown"}
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <i class="fas fa-download text-gray-600"></i>
+                    ${plugin.downloads ? formatNumber(plugin.downloads) : "0"}
+                  </span>
+                </div>
+                
+                <button class="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium install-plugin-btn transition-colors text-sm"
+                        data-plugin-id="${plugin.project_id}"
+                        data-plugin-name="${plugin.title || "plugin"}">
+                  <i class="fas fa-download mr-2"></i>Install
+                </button>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      // Open installation modal
+      function openInstallModal(plugin, pluginName) {
+        selectedPlugin = plugin;
+
+        const modalContent = document.getElementById("modalContent");
+        modalContent.innerHTML = `
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xl font-bold">
+              <i class="fas fa-download mr-2"></i>Install Plugin
+            </h3>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-white">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          
+          <div class="mb-6">
+            <div class="bg-gray-800/50 rounded-lg p-4 mb-4 border border-gray-700/50">
+              <h4 class="font-semibold text-lg mb-2">
+                ${currentSource === "spigot" ? plugin.name : plugin.title}
+              </h4>
+              <p class="text-gray-400 text-sm mb-2">
+                ${
+                  currentSource === "spigot"
+                    ? "By " + (plugin.author ? plugin.author.name : "Unknown")
+                    : "By " + (plugin.author || "Unknown")
+                }
+              </p>
+              <div class="flex items-center gap-4 text-sm text-gray-500">
+                <span><i class="fas fa-download mr-1"></i> ${
+                  currentSource === "spigot"
+                    ? plugin.downloads
+                      ? formatNumber(plugin.downloads)
+                      : "0"
+                    : plugin.downloads
+                    ? formatNumber(plugin.downloads)
+                    : "0"
+                } downloads</span>
+                <span><i class="fas fa-star mr-1"></i> ${
+                  currentSource === "spigot"
+                    ? plugin.rating
+                      ? plugin.rating.average.toFixed(1)
+                      : "N/A"
+                    : "N/A"
+                }/5</span>
+              </div>
+            </div>
+            
+            <div class="mb-4">
+              <label class="block text-gray-400 mb-2">Installation Options</label>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm text-gray-400 mb-1">Server Version</label>
+                  <select id="install-version" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-violet-500 text-white">
+                    <option value="<%= serverVersion %>"><%= serverVersion %></option>
+                    <option value="1.20.4">1.20.4</option>
+                    <option value="1.20.1">1.20.1</option>
+                    <option value="1.19.4">1.19.4</option>
+                    <option value="1.18.2">1.18.2</option>
+                    <option value="1.17.1">1.17.1</option>
+                    <option value="1.16.5">1.16.5</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm text-gray-400 mb-1">Server Type</label>
+                  <select id="install-type" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-violet-500 text-white">
+                    <option value="paper">Paper</option>
+                    <option value="spigot">Spigot</option>
+                    <option value="bukkit">Bukkit</option>
+                    <option value="purpur">Purpur</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="flex justify-end gap-3">
+            <button onclick="closeModal()" 
+                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">
+              Cancel
+            </button>
+            <button onclick="installPlugin()" 
+                    class="px-4 py-2 bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors font-semibold">
+              <i class="fas fa-download mr-2"></i>Install Now
+            </button>
+          </div>
+        `;
+
+        document.getElementById("install-modal").classList.add("active");
+      }
+
+      // Close modal
+      function closeModal() {
+        document.getElementById("install-modal").classList.remove("active");
+        selectedPlugin = null;
+      }
+
+      // Install plugin
+      async function installPlugin() {
+        if (!selectedPlugin) return;
+
+        const installBtn = document.querySelector(
+          '#modalContent button[onclick="installPlugin()"]'
+        );
+        const originalText = installBtn.innerHTML;
+
+        installBtn.innerHTML =
+          '<i class="fas fa-spinner fa-spin mr-2"></i>Installing...';
+        installBtn.disabled = true;
+
+        try {
+          // Construct plugin URL based on source
+          let pluginUrl;
+          if (currentSource === "spigot") {
+            pluginUrl = `https://api.spiget.org/v2/resources/${selectedPlugin.id}/download`;
+          } else {
+            // Modrinth - find appropriate download
+            pluginUrl =
+              selectedPlugin.versions && selectedPlugin.versions[0]
+                ? `https://api.modrinth.com/v2/project/${selectedPlugin.project_id}/version/${selectedPlugin.versions[0]}`
+                : null;
+          }
+
+          const pluginName =
+            currentSource === "spigot"
+              ? selectedPlugin.name
+              : selectedPlugin.title;
+
+          const response = await fetch(
+            `/server/<%= server.id %>/plugins/install`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                pluginUrl,
+                pluginName: pluginName.replace(/[^a-zA-Z0-9]/g, "_"),
+                source: currentSource,
+              }),
+            }
+          );
+
+          const data = await response.json();
+
+          if (data.success) {
+            showNotification("Plugin installed successfully!", "success");
+            closeModal();
+            // Refresh installed plugins list
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            showNotification(`Installation failed: ${data.error}`, "error");
+          }
+        } catch (error) {
+          showNotification(`Error: ${error.message}`, "error");
+        } finally {
+          installBtn.innerHTML = originalText;
+          installBtn.disabled = false;
+        }
+      }
+
+      // Toggle plugin enable/disable
+      async function togglePlugin(pluginName, enabled) {
+        try {
+          const response = await fetch(
+            `/server/<%= server.id %>/plugins/toggle`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pluginName, enabled }),
+            }
+          );
+
+          const data = await response.json();
+
+          if (data.success) {
+            showNotification(
+              `Plugin ${enabled ? "enabled" : "disabled"} successfully`,
+              "success"
+            );
+            // Refresh after delay
+            setTimeout(() => window.location.reload(), 1000);
+          } else {
+            showNotification(`Failed to toggle plugin: ${data.error}`, "error");
+            // Revert the toggle
+            setTimeout(() => window.location.reload(), 500);
+          }
+        } catch (error) {
+          showNotification(`Error: ${error.message}`, "error");
+          setTimeout(() => window.location.reload(), 500);
+        }
+      }
+
+      // Delete plugin
+      async function deletePlugin(pluginName) {
+        if (
+          !confirm(
+            `Are you sure you want to delete "${pluginName}"? This action cannot be undone.`
+          )
+        ) {
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `/server/<%= server.id %>/plugins/delete`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pluginName }),
+            }
+          );
+
+          const data = await response.json();
+
+          if (data.success) {
+            showNotification("Plugin deleted successfully", "success");
+            setTimeout(() => window.location.reload(), 1000);
+          } else {
+            showNotification(`Failed to delete plugin: ${data.error}`, "error");
+          }
+        } catch (error) {
+          showNotification(`Error: ${error.message}`, "error");
+        }
+      }
+
+      // Update pagination
+      function updatePagination(hasResults) {
+        const paginationDiv = document.getElementById("plugin-pagination");
+        const pageInfo = document.getElementById("page-info");
+        const prevBtn = document.getElementById("prev-page");
+        const nextBtn = document.getElementById("next-page");
+
+        if (hasResults) {
+          paginationDiv.classList.remove("hidden");
+          pageInfo.textContent = `Page ${currentPage}`;
+          prevBtn.disabled = currentPage <= 1;
+          nextBtn.disabled = false; // We don't know total pages from API
+        } else {
+          paginationDiv.classList.add("hidden");
+        }
+
+        // Set up pagination events
+        prevBtn.onclick = () => {
+          if (currentPage > 1) {
+            currentPage--;
+            searchPlugins();
+          }
+        };
+
+        nextBtn.onclick = () => {
+          currentPage++;
+          searchPlugins();
+        };
+      }
+
+      // Show notification
+      function showNotification(message, type = "info") {
+        const notification = document.getElementById("notification");
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
+        notification.classList.add("show");
+
+        setTimeout(() => {
+          notification.classList.remove("show");
+        }, 3000);
+      }
+
+      // Utility function to format numbers
+      function formatNumber(num) {
+        if (!num) return "0";
+        if (num >= 1000000) {
+          return (num / 1000000).toFixed(1) + "M";
+        } else if (num >= 1000) {
+          return (num / 1000).toFixed(1) + "K";
+        }
+        return num.toString();
+      }
+
+      // Search on Enter key
+      document
+        .getElementById("plugin-search")
+        .addEventListener("keyup", (e) => {
+          if (e.key === "Enter") {
+            searchPlugins();
+          }
+        });
+
+      // Close modal on ESC
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeModal();
+        }
+      });
+
+      // Close modal when clicking outside
+      document
+        .getElementById("install-modal")
+        .addEventListener("click", (e) => {
+          if (e.target === document.getElementById("install-modal")) {
+            closeModal();
+          }
+        });
+    </script>
+  </body>
+</html>

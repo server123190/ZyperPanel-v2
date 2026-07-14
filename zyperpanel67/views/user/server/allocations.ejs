@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= server.name %> - Allocations - <%= settings.panelName %></title>
+  <link class="js-favicon" rel="icon" href="/falcon.ico">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .gradient-bg {
+      background: linear-gradient(-45deg, #1e1b4b, #312e81, #4f46e5, #7c3aed);
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+    }
+    
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white flex h-screen overflow-hidden">
+  <!-- SIDEBAR -->
+  <aside class="w-72 bg-gray-800 border-r border-gray-700/50 flex flex-col">
+    <!-- Logo & Panel Name -->
+    <div class="p-5 border-b border-gray-700/50">
+      <a href="/dashboard" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shadow-lg shadow-violet-500/20">
+          <i class="fas fa-gamepad text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg tracking-tight"><%= settings.panelName %></h1>
+          <p class="text-xs text-gray-400">Game Panel</p>
+        </div>
+      </a>
+    </div>
+    
+    <!-- Server Info Card -->
+    <div class="p-5 border-b border-gray-700/50">
+      <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700/30 shadow-lg">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex-1">
+            <h2 class="font-bold text-lg truncate"><%= server.name %></h2>
+            <p class="text-sm text-gray-400 mt-1">
+              <i class="fas fa-server text-violet-400 mr-2"></i>
+              <%= server.type %> <%= server.version %>
+            </p>
+          </div>
+          <div class="flex flex-col items-end">
+            <span class="px-3 py-1 rounded-full text-xs font-medium
+              <%= server.status === 'running' ? 'bg-green-500/20 text-green-400 status-pulse' : 
+                 server.status === 'stopped' ? 'bg-red-500/20 text-red-400' : 
+                 'bg-yellow-500/20 text-yellow-400' %>">
+              <i class="fas fa-circle text-[8px] mr-1"></i>
+              <%= server.status.charAt(0).toUpperCase() + server.status.slice(1) %>
+            </span>
+            <% const primaryAlloc = (serverAllocations || []).find(a => a.isPrimary); %>
+            <span 
+              class="text-xs text-gray-400 mt-2 cursor-pointer hover:text-gray-300 transition-colors group relative"
+              onclick="copyConnectionInfo()"
+              title="Click to copy IP:Port"
+            >
+              <% if (primaryAlloc) { %>
+                <%= primaryAlloc.allocation?.alias || primaryAlloc.allocation?.ipAddress || primaryAlloc.alias || primaryAlloc.ipAddress %>:<span class="text-blue-300" id="connectionText"><%= primaryAlloc.port %></span>
+              <% } else { %>
+                Port: <span class="text-blue-300" id="connectionText"><%= server.port %></span>
+              <% } %>
+              <i class="fas fa-copy ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-xs"></i>
+              <span id="copyTooltip" class="absolute -top-8 left-0 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                Click to copy
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Navigation -->
+    <div class="flex-1 p-5 overflow-y-auto">
+      <nav class="space-y-1">
+        <a href="/server/<%= server.id %>" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group">
+          <i class="fas fa-terminal w-5 text-center group-hover:text-green-400"></i>
+          <span>Console</span>
+        </a>
+        
+        <a href="/server/<%= server.id %>/files" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group">
+          <i class="fas fa-folder w-5 text-center group-hover:text-blue-400"></i>
+          <span>File Manager</span>
+        </a>
+        
+        <a href="/server/<%= server.id %>/allocations" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/20 text-blue-300 transition-all duration-200">
+          <i class="fas fa-network-wired w-5 text-center"></i>
+          <span>Allocations</span>
+          <% if (serverAllocations.length > 0) { %>
+            <span class="ml-auto px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+              <%= serverAllocations.length %>
+            </span>
+          <% } %>
+        </a>
+        
+        <a href="/server/<%= server.id %>/players" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group">
+          <i class="fas fa-users w-5 text-center group-hover:text-green-400"></i>
+          <span>Players</span>
+          <% if (server.players && server.players.length > 0) { %>
+            <span class="ml-auto px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
+              <%= server.players.length %>
+            </span>
+          <% } %>
+        </a>
+        
+        <a href="/server/<%= server.id %>/plugins" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group">
+          <i class="fas fa-plug w-5 text-center group-hover:text-yellow-400"></i>
+          <span>Plugins</span>
+        </a>
+        
+        <a href="/server/<%= server.id %>/versions" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group">
+          <i class="fas fa-code-branch w-5 text-center group-hover:text-orange-400"></i>
+          <span>Versions</span>
+        </a>
+        
+        <a href="/server/<%= server.id %>/settings" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group">
+          <i class="fas fa-cog w-5 text-center group-hover:text-gray-400"></i>
+          <span>Settings</span>
+        </a>
+      </nav>
+      
+      <!-- Quick Stats -->
+      <div class="mt-8 pt-6 border-t border-gray-700/50">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Quick Stats</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-gray-400">Node:</span>
+            <span class="font-medium"><%= server.node.name %></span>
+          </div>
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-gray-400">Location:</span>
+            <span class="font-medium"><%= server.node.location %></span>
+          </div>
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-gray-400">Created:</span>
+            <span class="font-medium"><%= new Date(server.createdAt).toLocaleDateString() %></span>
+          </div>
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-gray-400">Allocations:</span>
+            <span class="font-medium text-blue-400"><%= serverAllocations.length %></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer / Back Button -->
+    <div class="p-5 border-t border-gray-700/50">
+      <a href="/server/<%= server.id %>" 
+         class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-700/30 text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200 group">
+        <i class="fas fa-arrow-left text-sm group-hover:-translate-x-1 transition-transform"></i>
+        <span>Back to Console</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Top Header -->
+    <header class="bg-gray-800/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold">Allocations</h1>
+        <p class="text-sm text-gray-400">Manage IP addresses and ports for your server</p>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <!-- Status indicator -->
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full <%= server.status === 'running' ? 'bg-green-500/10' : 'bg-gray-700/50' %>">
+          <div class="w-2 h-2 rounded-full <%= server.status === 'running' ? 'bg-green-400 status-pulse' : 'bg-gray-400' %>"></div>
+          <span class="text-sm font-medium">
+            <%= server.status.charAt(0).toUpperCase() + server.status.slice(1) %>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 overflow-y-auto p-6">
+      <!-- Connection Info Card -->
+      <div class="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-2xl border border-blue-500/30 p-6 mb-8">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold mb-2 text-blue-300">Server Connection Info</h2>
+            <p class="text-gray-300">Players use this address to connect to your server</p>
+          </div>
+          <div>
+            <% if (primaryAlloc) { %>
+              <div class="text-right">
+                <p class="text-2xl font-bold font-mono">
+                  <%= primaryAlloc.allocation?.alias || primaryAlloc.allocation?.ipAddress || primaryAlloc.alias || primaryAlloc.ipAddress %>:<%= primaryAlloc.port %>
+                </p>
+                <p class="text-sm text-gray-400 mt-1">
+                  Primary Allocation
+                  <% if (primaryAlloc.allocation?.alias || primaryAlloc.alias) { %>
+                    <span class="text-blue-300">(Domain: <%= primaryAlloc.allocation?.alias || primaryAlloc.alias %>)</span>
+                  <% } %>
+                </p>
+              </div>
+            <% } else { %>
+              <div class="text-right">
+                <p class="text-2xl font-bold font-mono">
+                  <%= server.node.host %>:<%= server.port %>
+                </p>
+                <p class="text-sm text-gray-400 mt-1">Using node default IP</p>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Allocations -->
+      <div class="bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-2xl border border-gray-700/30 p-6 mb-8 shadow-xl">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-lg font-semibold flex items-center gap-2">
+            <i class="fas fa-network-wired text-blue-400"></i>
+            Current Allocations
+          </h2>
+          <button 
+            onclick="openAddAllocationModal()"
+            class="px-4 py-2 bg-green-500 rounded-lg hover:bg-green-600 flex items-center gap-2"
+            <%= server.status !== 'running' ? 'disabled' : '' %>
+          >
+            <i class="fas fa-plus"></i>
+            Add Allocation
+          </button>
+        </div>
+        
+        <% if (serverAllocations.length === 0) { %>
+          <div class="text-center py-12">
+            <i class="fas fa-network-wired text-5xl text-gray-600 mb-4"></i>
+            <h3 class="text-xl font-semibold mb-2">No Allocations Yet</h3>
+            <p class="text-gray-400 mb-6">Add IP addresses and ports to your server</p>
+            <button 
+              onclick="openAddAllocationModal()"
+              class="px-6 py-3 bg-green-500 rounded-lg hover:bg-green-600 inline-flex items-center gap-2"
+              <%= server.status !== 'running' ? 'disabled' : '' %>
+            >
+              <i class="fas fa-plus"></i>
+              Add First Allocation
+            </button>
+          </div>
+        <% } else { %>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <% serverAllocations.forEach(allocation => { 
+              const isPrimary = allocation.isPrimary;
+              const nodeAllocation = nodeAllocations.find(na => na.id === allocation.allocationId);
+            %>
+              <div class="bg-gray-800/30 rounded-xl border <%= isPrimary ? 'border-yellow-500/30' : 'border-gray-700/30' %> p-5">
+                <div class="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 class="font-semibold flex items-center gap-2">
+                      <% if (isPrimary) { %>
+                        <i class="fas fa-star text-yellow-400"></i>
+                        <span class="text-yellow-300">Primary Allocation</span>
+                      <% } else { %>
+                        <span>Additional Allocation</span>
+                      <% } %>
+                    </h3>
+                    <p class="text-sm text-gray-400 mt-1">
+                      <% if (nodeAllocation) { %>
+                        IP: <%= nodeAllocation.ipAddress %>
+                        <% if (nodeAllocation.alias) { %>
+                          <span class="text-blue-300">(<%= nodeAllocation.alias %>)</span>
+                        <% } %>
+                      <% } %>
+                    </p>
+                  </div>
+                  <div class="flex gap-2">
+                    <% if (!isPrimary && serverAllocations.length > 1) { %>
+                      <button 
+                        onclick="setPrimaryAllocation('<%= allocation.allocationId %>')"
+                        class="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded text-sm hover:bg-yellow-500/30 flex items-center gap-1"
+                      >
+                        <i class="fas fa-star"></i>
+                        Set Primary
+                      </button>
+                    <% } %>
+                  </div>
+                </div>
+                
+                <div class="space-y-3">
+                  <div>
+                    <div class="flex justify-between items-center mb-1">
+                      <span class="text-sm text-gray-400">Port</span>
+                      <span class="font-mono text-lg font-bold text-blue-300"><%= allocation.port %></span>
+                    </div>
+                    <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div class="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full"></div>
+                    </div>
+                  </div>
+                  
+                  <% if (nodeAllocation) { %>
+                    <div class="pt-3 border-t border-gray-700/30">
+                      <h4 class="text-sm font-medium mb-2">Available Ports in Range:</h4>
+                      <div class="flex flex-wrap gap-2">
+                        <% 
+                          const allPorts = nodeAllocation.ports.split(',').reduce((ports, range) => {
+                            if (range.includes('-')) {
+                              const [start, end] = range.split('-').map(p => parseInt(p.trim()));
+                              for (let i = start; i <= end; i++) ports.push(i);
+                            } else {
+                              ports.push(parseInt(range.trim()));
+                            }
+                            return ports;
+                          }, []);
+                          
+                          const usedPorts = nodeAllocation.servers.map(s => s.port);
+                          const availablePorts = allPorts.filter(p => !usedPorts.includes(p));
+                        %>
+                        
+                        <% availablePorts.slice(0, 8).forEach(port => { %>
+                          <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-mono">
+                            <%= port %>
+                          </span>
+                        <% }) %>
+                        
+                        <% if (availablePorts.length > 8) { %>
+                          <span class="px-2 py-1 bg-gray-700 text-gray-400 rounded text-xs">
+                            +<%= availablePorts.length - 8 %> more
+                          </span>
+                        <% } %>
+                      </div>
+                    </div>
+                  <% } %>
+                </div>
+                
+                <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-700/30">
+                  <div class="text-xs text-gray-500">
+                    <i class="fas fa-plug mr-1"></i>
+                    <%= isPrimary ? 'Main connection port' : 'Additional port' %>
+                  </div>
+                  <div class="flex gap-2">
+                    <button 
+                      onclick="copyAllocationInfo('<%= allocation.allocationId %>', <%= allocation.port %>)"
+                      class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded text-sm hover:bg-blue-500/30 flex items-center gap-1"
+                    >
+                      <i class="fas fa-copy"></i>
+                      Copy
+                    </button>
+                    <% if (!isPrimary) { %>
+                      <button 
+                        onclick="removeAllocation('<%= allocation.allocationId %>')"
+                        class="px-3 py-1 bg-red-500/20 text-red-400 rounded text-sm hover:bg-red-500/30 flex items-center gap-1"
+                      >
+                        <i class="fas fa-trash"></i>
+                        Remove
+                      </button>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- Available Allocations -->
+      <div class="bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-2xl border border-gray-700/30 p-6 shadow-xl">
+        <h2 class="text-lg font-semibold mb-6 flex items-center gap-2">
+          <i class="fas fa-list text-green-400"></i>
+          Available Allocations for This Node
+        </h2>
+        
+        <% if (nodeAllocations.length === 0) { %>
+          <div class="text-center py-8">
+            <p class="text-gray-400">No allocations available for this node. Contact an administrator.</p>
+          </div>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-700/30">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">IP Address</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Alias</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Port Range</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Available Ports</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-700/30">
+                <% nodeAllocations.forEach(allocation => { 
+                  const isAssigned = serverAllocations.some(sa => sa.allocationId === allocation.id);
+                  const allPorts = allocation.ports.split(',').reduce((total, range) => {
+                    if (range.includes('-')) {
+                      const [start, end] = range.split('-').map(p => parseInt(p.trim()));
+                      return total + (end - start + 1);
+                    }
+                    return total + 1;
+                  }, 0);
+                  const usedPorts = allocation.servers.length;
+                  const availablePorts = allPorts - usedPorts;
+                %>
+                  <tr class="hover:bg-gray-700/20">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center">
+                        <span class="font-mono"><%= allocation.ipAddress %></span>
+                        <% if (allocation.isPrimary) { %>
+                          <span class="ml-2 px-2 py-1 text-xs bg-yellow-500/20 text-yellow-400 rounded-full">Node Primary</span>
+                        <% } %>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <%= allocation.alias || '-' %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class="font-mono bg-gray-700/50 px-2 py-1 rounded text-sm"><%= allocation.ports %></span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center gap-2">
+                        <div class="w-20 bg-gray-700 rounded-full h-2">
+                          <div 
+                            class="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full"
+                            style="width: <%= (availablePorts / allPorts) * 100 %>%"
+                          ></div>
+                        </div>
+                        <span class="text-sm text-gray-300">
+                          <%= availablePorts %>
+                        </span>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <% if (isAssigned) { %>
+                        <span class="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded-full">Assigned</span>
+                      <% } else if (availablePorts > 0) { %>
+                        <span class="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded-full">Available</span>
+                      <% } else { %>
+                        <span class="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded-full">Full</span>
+                      <% } %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <% if (isAssigned) { %>
+                        <span class="text-gray-500 italic">Already assigned</span>
+                      <% } else if (availablePorts > 0) { %>
+                        <button
+                          onclick="assignAllocation('<%= allocation.id %>')"
+                          class="px-3 py-1 bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 text-sm flex items-center gap-1"
+                        >
+                          <i class="fas fa-plus"></i>
+                          Assign Port
+                        </button>
+                      <% } else { %>
+                        <span class="text-gray-500 text-sm">No ports available</span>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+        
+        <div class="mt-6 pt-6 border-t border-gray-700/30">
+          <h3 class="font-semibold mb-3">Allocation Usage Tips</h3>
+          <ul class="text-sm text-gray-400 space-y-2">
+            <li class="flex items-start gap-2">
+              <i class="fas fa-check text-green-400 mt-1"></i>
+              <span><strong>Primary Allocation:</strong> This is the main connection address players use</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-check text-green-400 mt-1"></i>
+              <span><strong>Additional Ports:</strong> Useful for voting systems, plugins, or backup connections</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-check text-green-400 mt-1"></i>
+              <span><strong>Domain Aliases:</strong> Use domains instead of IP addresses for easier connections</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-check text-green-400 mt-1"></i>
+              <span><strong>Port Ranges:</strong> You can assign multiple ports from the same IP allocation</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Allocation Modal -->
+  <div id="addAllocationModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-gray-800 rounded-xl p-6 max-w-lg w-full">
+      <h3 class="text-xl font-bold mb-4">Add Allocation to Server</h3>
+      <form id="addAllocationForm">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Select Allocation *</label>
+            <select
+              name="allocationId"
+              required
+              class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none"
+              id="allocationSelect"
+              onchange="updatePortOptions(this.value)"
+            >
+              <option value="">Select an allocation</option>
+              <% nodeAllocations.forEach(allocation => { 
+                const isAssigned = serverAllocations.some(sa => sa.allocationId === allocation.id);
+                const allPorts = allocation.ports.split(',').reduce((total, range) => {
+                  if (range.includes('-')) {
+                    const [start, end] = range.split('-').map(p => parseInt(p.trim()));
+                    return total + (end - start + 1);
+                  }
+                  return total + 1;
+                }, 0);
+                const usedPorts = allocation.servers.length;
+                const availablePorts = allPorts - usedPorts;
+                
+                if (!isAssigned && availablePorts > 0) { %>
+                  <option value="<%= allocation.id %>">
+                    <%= allocation.ipAddress %> (<%= allocation.ports %>) - <%= availablePorts %> ports available
+                  </option>
+                <% } %>
+              <% }) %>
+            </select>
+          </div>
+          
+          <div id="portSelection" class="hidden">
+            <label class="block text-sm font-medium mb-2">Select Port</label>
+            <select
+              name="port"
+              class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none"
+              id="portSelect"
+            >
+              <!-- Will be populated by JavaScript -->
+            </select>
+            <p class="text-xs text-gray-400 mt-1">Select a port from the available range</p>
+          </div>
+          
+          <div id="allocationDetails" class="hidden bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
+            <h4 class="font-semibold mb-2">Allocation Details</h4>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span class="text-gray-400">IP Address:</span>
+                <span class="font-mono ml-2" id="detailIp">-</span>
+              </div>
+              <div>
+                <span class="text-gray-400">Alias:</span>
+                <span class="ml-2" id="detailAlias">-</span>
+              </div>
+              <div>
+                <span class="text-gray-400">Port Range:</span>
+                <span class="font-mono ml-2" id="detailPorts">-</span>
+              </div>
+              <div>
+                <span class="text-gray-400">Available:</span>
+                <span class="ml-2" id="detailAvailable">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-end gap-3 mt-6">
+          <button
+            type="button"
+            onclick="closeAddAllocationModal()"
+            class="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2 bg-green-500 rounded-lg hover:bg-green-600"
+            id="submitAllocationBtn"
+          >
+            Add Allocation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const serverId = '<%= server.id %>';
+    
+    function copyConnectionInfo() {
+      const connectionElement = document.getElementById('connectionText');
+      let connectionString = '';
+      
+      <% if (primaryAlloc) { %>
+        connectionString = '<%= primaryAlloc.allocation?.alias || primaryAlloc.allocation?.ipAddress || primaryAlloc.alias || primaryAlloc.ipAddress %>:' + connectionElement.textContent;
+      <% } else { %>
+        connectionString = '<%= server.node.host %>:' + connectionElement.textContent;
+      <% } %>
+      
+      navigator.clipboard.writeText(connectionString)
+        .then(() => {
+          const tooltip = document.getElementById('copyTooltip');
+          if (tooltip) {
+            const originalText = tooltip.textContent;
+            tooltip.textContent = 'Copied!';
+            tooltip.classList.remove('bg-gray-800');
+            tooltip.classList.add('bg-green-600');
+            
+            setTimeout(() => {
+              tooltip.textContent = originalText;
+              tooltip.classList.remove('bg-green-600');
+              tooltip.classList.add('bg-gray-800');
+            }, 2000);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to copy: ', err);
+          alert('Failed to copy to clipboard. Please copy manually: ' + connectionString);
+        });
+    }
+    
+    function copyAllocationInfo(allocationId, port) {
+      const allocation = nodeAllocations.find(a => a.id === allocationId);
+      if (!allocation) return;
+      
+      const connectionString = `${allocation.alias || allocation.ipAddress}:${port}`;
+      
+      navigator.clipboard.writeText(connectionString)
+        .then(() => {
+          Swal.fire({
+            title: 'Copied!',
+            text: `Connection info copied: ${connectionString}`,
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+            background: '#1f2937',
+            color: '#fff'
+          });
+        })
+        .catch(err => {
+          console.error('Failed to copy: ', err);
+          alert('Failed to copy to clipboard. Please copy manually: ' + connectionString);
+        });
+    }
+    
+    function openAddAllocationModal() {
+      document.getElementById('addAllocationModal').classList.remove('hidden');
+    }
+    
+    function closeAddAllocationModal() {
+      document.getElementById('addAllocationModal').classList.add('hidden');
+      document.getElementById('addAllocationForm').reset();
+      document.getElementById('portSelection').classList.add('hidden');
+      document.getElementById('allocationDetails').classList.add('hidden');
+    }
+    
+    async function updatePortOptions(allocationId) {
+      const portSelection = document.getElementById('portSelection');
+      const allocationDetails = document.getElementById('allocationDetails');
+      
+      if (!allocationId) {
+        portSelection.classList.add('hidden');
+        allocationDetails.classList.add('hidden');
+        return;
+      }
+      
+      const allocation = nodeAllocations.find(a => a.id === allocationId);
+      if (!allocation) return;
+      
+      // Show allocation details
+      document.getElementById('detailIp').textContent = allocation.ipAddress;
+      document.getElementById('detailAlias').textContent = allocation.alias || 'None';
+      document.getElementById('detailPorts').textContent = allocation.ports;
+      
+      // Get available ports
+      try {
+        const response = await fetch(`/admin/nodes/allocations/${allocationId}/ports`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const availablePorts = data.ports.available;
+          document.getElementById('detailAvailable').textContent = availablePorts.length + ' ports';
+          
+          const portSelect = document.getElementById('portSelect');
+          portSelect.innerHTML = '';
+          
+          if (availablePorts.length > 0) {
+            availablePorts.forEach(port => {
+              const option = document.createElement('option');
+              option.value = port;
+              option.textContent = port;
+              portSelect.appendChild(option);
+            });
+            
+            portSelection.classList.remove('hidden');
+            allocationDetails.classList.remove('hidden');
+          } else {
+            Swal.fire({
+              title: 'No Ports Available',
+              text: 'This allocation has no available ports.',
+              icon: 'warning',
+              confirmButtonText: 'OK',
+              background: '#1f2937',
+              color: '#fff'
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching port details:', error);
+      }
+    }
+    
+    async function assignAllocation(allocationId) {
+      try {
+        // Get available ports
+        const response = await fetch(`/admin/nodes/allocations/${allocationId}/ports`);
+        const data = await response.json();
+        
+        if (data.success && data.ports.available.length > 0) {
+          // Use the first available port
+          const port = data.ports.available[0];
+          
+          const formData = new FormData();
+          formData.append('allocationId', allocationId);
+          formData.append('port', port);
+          
+          const addResponse = await fetch(`/server/${serverId}/allocations/add`, {
+            method: 'POST',
+            body: JSON.stringify({
+              allocationId: allocationId,
+              port: port
+            }),
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          const result = await addResponse.json();
+          
+          if (result.success) {
+            Swal.fire({
+              title: 'Success!',
+              text: result.message,
+              icon: 'success',
+              timer: 2000,
+              showConfirmButton: false,
+              background: '#1f2937',
+              color: '#fff'
+            });
+            
+            setTimeout(() => {
+              location.reload();
+            }, 2000);
+          } else {
+            Swal.fire({
+              title: 'Error!',
+              text: result.error,
+              icon: 'error',
+              confirmButtonText: 'OK',
+              background: '#1f2937',
+              color: '#fff'
+            });
+          }
+        }
+      } catch (error) {
+        Swal.fire({
+          title: 'Error!',
+          text: error.message,
+          icon: 'error',
+          confirmButtonText: 'OK',
+          background: '#1f2937',
+          color: '#fff'
+        });
+      }
+    }
+    
+    async function setPrimaryAllocation(allocationId) {
+      try {
+        const response = await fetch(`/server/${serverId}/allocations/set-primary`, {
+          method: 'POST',
+          body: JSON.stringify({
+            allocationId: allocationId
+          }),
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          Swal.fire({
+            title: 'Success!',
+            text: result.message,
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+            background: '#1f2937',
+            color: '#fff'
+          });
+          
+          setTimeout(() => {
+            location.reload();
+          }, 2000);
+        } else {
+          Swal.fire({
+            title: 'Error!',
+            text: result.error,
+            icon: 'error',
+            confirmButtonText: 'OK',
+            background: '#1f2937',
+            color: '#fff'
+          });
+        }
+      } catch (error) {
+        Swal.fire({
+          title: 'Error!',
+          text: error.message,
+          icon: 'error',
+          confirmButtonText: 'OK',
+          background: '#1f2937',
+          color: '#fff'
+        });
+      }
+    }
+    
+    async function removeAllocation(allocationId) {
+      const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: "This will remove the allocation from your server.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, remove it!',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ef4444',
+        background: '#1f2937',
+        color: '#fff'
+      });
+      
+      if (result.isConfirmed) {
+        try {
+          const response = await fetch(`/server/${serverId}/allocations/remove`, {
+            method: 'POST',
+            body: JSON.stringify({
+              allocationId: allocationId
+            }),
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            Swal.fire({
+              title: 'Removed!',
+              text: data.message,
+              icon: 'success',
+              timer: 2000,
+              showConfirmButton: false,
+              background: '#1f2937',
+              color: '#fff'
+            });
+            
+            setTimeout(() => {
+              location.reload();
+            }, 2000);
+          } else {
+            Swal.fire({
+              title: 'Error!',
+              text: data.error,
+              icon: 'error',
+              confirmButtonText: 'OK',
+              background: '#1f2937',
+              color: '#fff'
+            });
+          }
+        } catch (error) {
+          Swal.fire({
+            title: 'Error!',
+            text: error.message,
+            icon: 'error',
+            confirmButtonText: 'OK',
+            background: '#1f2937',
+            color: '#fff'
+          });
+        }
+      }
+    }
+    
+    // Add allocation form submission
+    document.getElementById('addAllocationForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      const allocationId = formData.get('allocationId');
+      const port = formData.get('port');
+      
+      const submitBtn = document.getElementById('submitAllocationBtn');
+      const originalText = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+      submitBtn.disabled = true;
+      
+      try {
+        const response = await fetch(`/server/${serverId}/allocations/add`, {
+          method: 'POST',
+          body: JSON.stringify({
+            allocationId: allocationId,
+            port: port
+          }),
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          Swal.fire({
+            title: 'Success!',
+            text: result.message,
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+            background: '#1f2937',
+            color: '#fff'
+          });
+          
+          setTimeout(() => {
+            location.reload();
+          }, 2000);
+        } else {
+          Swal.fire({
+            title: 'Error!',
+            text: result.error,
+            icon: 'error',
+            confirmButtonText: 'OK',
+            background: '#1f2937',
+            color: '#fff'
+          });
+        }
+      } catch (error) {
+        Swal.fire({
+          title: 'Error!',
+          text: error.message,
+          icon: 'error',
+          confirmButtonText: 'OK',
+          background: '#1f2937',
+          color: '#fff'
+        });
+      } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+      }
+    });
+    
+    /* Declare nodeAllocations array safely inside a block comment */
+    const nodeAllocations = [
+      <% nodeAllocations.forEach((allocation, index) => { %>
+        {
+          id: '<%= allocation.id %>',
+          ipAddress: '<%= allocation.ipAddress %>',
+          alias: '<%= allocation.alias || null %>',
+          ports: '<%= allocation.ports %>',
+          isPrimary: <%= allocation.isPrimary %>,
+          servers: [
+            <% (allocation.servers || []).forEach(server => { %>
+              { port: <%= server.port %> },
+            <% }) %>
+          ]
+        }<%= index < nodeAllocations.length - 1 ? ',' : '' %>
+      <% }) %>
+    ];
+  </script>
+</body>
+</html>
