@@ -72,8 +72,8 @@ ZyperPanel consists of two components that work together:
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/server123190/ZyperPanel-v2.git
-   cd ZyperPanel-v2
+   git clone https://github.com/server123190/ZyperPanel-v2/zyperpanel67
+   cd zyperpanel67
    ```
 
 2. **Install dependencies**
